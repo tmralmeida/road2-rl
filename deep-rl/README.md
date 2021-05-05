@@ -56,8 +56,9 @@ I opted to use a transversal "code template" for deep RL algorithms based on [de
     * $L_{v_{\pi}} = ((V_\pi(s) - R)^2).\text{mean()}$
 
 <p align="center">
-  <img width="400" height="400" src="results/vpg_res.png">
+  <img width="500" height="400" src="results/vpg_res.png">
 </p>
+
 
 
 
@@ -119,7 +120,7 @@ The `observation_type` stands out for the types of state observations that the a
 
 
 <p align="center">
-  <img width="800" height="400" src="results/dqn_res.png">
+  <img width="1000" height="500" src="results/dqn_res.png">
 </p>
 
 
