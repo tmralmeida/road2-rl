@@ -55,6 +55,6 @@ I opted to use a transversal "code template" for deep RL algorithms based on [de
     * $L_{v_{\pi}} = ((V_\pi(s) - R)^2).\text{mean()}$
 
 <p align="center">
-  <img width="800" height="800" src="resutls/vpg_res.png">
+  <img width="400" height="400" src="results/vpg_res.png">
 </p>
 
