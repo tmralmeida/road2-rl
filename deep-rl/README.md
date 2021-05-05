@@ -25,6 +25,7 @@ I opted to use a transversal "code template" for deep RL algorithms based on [de
 * **Score Function Estimator** is a general method for estimating gradients of expectations: $\nabla_\theta E_x[f(x)] = E_x [\nabla_\theta \log p(x|\theta) f(x)]$. In Deep RL setting, let's say that $x$ is a random variable (the state or trajectory) and $f(x)$ the function that maps the state\trajectory to a reward, then: $\nabla_\theta E_\tau[R(\tau)] = E_\tau [\nabla_\theta \log p(\tau|\theta) R(\tau)]$, which with a little manipulation (chain rule in the trajectory) is the same as:  $\nabla_\theta E_\tau[R(\tau)] = E_\tau [\sum^{T-1}_{t=0}\nabla_\theta \log \pi(a_t|s_t, \theta) R(\tau)]$
 * If the reward is high, we want to move the parameters in order to increase the log likelihood of that trajectory
 * We can reduce the variance of the policy gradient estimator by using a baseline; a near optima choice is the state-value function
+* Typically, on-policy methods
 
 
 
@@ -57,4 +58,43 @@ I opted to use a transversal "code template" for deep RL algorithms based on [de
 <p align="center">
   <img width="400" height="400" src="results/vpg_res.png">
 </p>
+
+
+
+
+| Argument Name      |   Type   |    Default    | Additional Info                         |
+| ------------------ | :------: | :-----------: | --------------------------------------- |
+| --epochs           |  `int`   |    `1200`     | Number of epochs to train               |
+| --steps_per_epoch  |  `int`   |    `4000`     | Number maximum of (s, a) per epoch      |
+| --gamma            | `float`  |    `0.99`     | Discount factor (adv. function)         |
+| --lam              | `float`  |    `0.97`     | Adv. function hyperparameter            |
+| --pi_lr            | `float`  |    `3e-4`     | Learning rate for the policy net        |
+| --v_lr             | `float`  |    `1e-3`     | Learning rate for the value function    |
+| --train_v_iters    |  `int`   |     `80`      | Number of updates in the value function |
+| --max_ep_len       |  `int`   |    `1000`     | Max len of a traj/episode/rollout       |
+| --hidden_sizes     | `tuple`  |   `(32,32)`   | Shape of each hidden FC layer           |
+| --observation_type | `string` |   `default`   | Choices = [`default`, `img`]            |
+| --env              | `string` | `CartPole-v0` | The only one provided right now         |
+| --device           | `string` |     `cpu`     | Choices = [`default`, `img`]            |
+
+
+
+The `observation_type` stands out for the types of state observations that the algorithm may have: the input image or the default state observations (position of cart, velocity of cart, angle of pole, rotation rate of pole for the CartPole-v0 environment). In this algorithm, one thing that I'd like to notice is the fact that the full batch is stored before the algorithm's update. In this way, we keep the i.i.d assumption motivated by the usage of Deep Networks (a full epoch has no dependence with the respective next epoch). 
+
+## Q-Learning methods
+
+* Instead of directly learning the policy, Q-Learning methods learn an optimal state-action ($Q_\theta(s,a)$) value function; from that we can get the optimal policy
+* Typically, off-policy methods
+
+
+
+### DQN
+
+* The primary goal of this algorithm is to learn a state-action value function whose inputs are RGB images
+* One of the possible misconceptions when using Deep Learning in RL settings could be: the i.i.d property of the data. To avoid this problem, DQN stores first the data in  a replay buffer; from which training data is **randomly** sampled
+* DQN is an off-policy algorithm in which the action stored in the memory buffer is generated based on a state action network different from the one being estimated
+* Therefore, this algorithm makes use of 2 state action value networks: the one that is used to generate data and the other that is consecutively being approximated through the Bellman optimally equation; After `C` episodes, the weights of the estimated network are copied to the behavior state action value model
+* See the [official paper](#https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf)
+
+
 

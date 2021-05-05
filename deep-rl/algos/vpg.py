@@ -31,7 +31,7 @@ parser.add_argument(
     "--steps_per_epoch",
     "-spe",
     type=int,
-    help="Max number of (s,a) in eahc epoch",
+    help="Max number of (s,a) per epoch",
     default=4000
 )
 
