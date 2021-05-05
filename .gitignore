@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+*.json
+1_VPG-image.ipynb
+1_VPG.ipynb
+Untitled.ipynb
+drafts/
