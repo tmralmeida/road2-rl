@@ -20,18 +20,18 @@ import argparse
 parser = argparse.ArgumentParser(description = "VPG algorithm usage")
 
 parser.add_argument(
-    "--episodes",
+    "--epochs",
     "-e",
     type=int,
-    help="Number of episodes to train",
+    help="Number of epochs to train",
     default=1200
 )
 
 parser.add_argument(
-    "--steps_per_episode",
+    "--steps_per_epoch",
     "-spe",
     type=int,
-    help="Number maximum of steps per episode",
+    help="Max number of (s,a) in eahc epoch",
     default=4000
 )
 
@@ -72,14 +72,14 @@ parser.add_argument(
     "--train_v_iters",
     "-tvi",
     type=int,
-    help="Number of iterations to run the value function optimizer in each episode",
+    help="Number of iterations to run the value function optimizer in each epoch",
     default=80,
 )
 
 parser.add_argument(
     "--max_ep_len",
     type=int,
-    help="Max len of a trajectory in each episode",
+    help="Max len of a trajectory / episode / rollout",
     default=1000
 )
 
@@ -122,7 +122,7 @@ def mlp(obs_type, sizes, activation = nn.Tanh, last_activation = nn.Identity):
     """ Function that returns a multi layer perceptron pytorch object. It's the policy network
 
     Args:
-        inp_type (str): type of the input: {"img", "val"}, image or values
+        obs_type (str): type of the input: {"img", "default"}, image or OpenAi Gym default
         sizes (iterator): hidden sizes 
         activation (class 'torch.nn.modules.activation): activation of the hidden layers. Defaults to nn.Tanh.
         last_activation (class 'torch.nn.modules.activation): [activation of the last layer]. Defaults to nn.Identity.
@@ -213,9 +213,9 @@ class ReplayMemory():
         return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
 
 
-# Actor Critic
+# Policy and value functions
 class MLPCategoricalPolicy(nn.Module):
-    """ Handles the full operation of an actor of discrete actions
+    """ Handles the full operation of an policy of discrete actions
 
     Attributes:
         policy_net (nn.Sequential): NN that maps observations into the actions' logits
@@ -266,8 +266,8 @@ class MLPGaussianPolicy():
     def log_prob_from_dist(self, pi, act):
         return pi.log_prob(act).sum(axis=-1)
     
-class ActorCritic(nn.Module):
-    """ Highlevel handler of the Actor Critic. Although several res define REINFORCE as an AC, I don't agree
+class PolicyValue(nn.Module):
+    """ Highlevel handler of the Policy and Value functions. Although several res define REINFORCE as an AC, I don't agree
     """
     def __init__(self, obs_type, observation_space, action_space, hidden_sizes, activation = nn.Tanh, last_activation = nn.Identity, device = torch.device("cpu")):
         super().__init__()
@@ -277,7 +277,7 @@ class ActorCritic(nn.Module):
         elif obs_type=="default":
             dims = [observation_space.shape[0]] + list(hidden_sizes)
             
-        # Critic
+        # Value Function
         self.v_pi = mlp(obs_type, dims + [1], activation, last_activation).to(device)
         
         if isinstance(action_space, Box):
@@ -290,7 +290,6 @@ class ActorCritic(nn.Module):
         with torch.no_grad():
             pi = self.pi.dist(obs)
             a = pi.sample()
-            logp_a = self.pi.log_prob_from_dist(pi,a)
             v = self.v_pi(obs).squeeze()
         return a.cpu().numpy(), v.cpu().numpy()
   
@@ -314,23 +313,23 @@ else:
     obs_sp = env.observation_space
     act_sp = env.action_space
     obs = env.reset()
-ac = ActorCritic(obs_type = args.observation_type, observation_space = obs_sp, action_space = act_sp, hidden_sizes = args.hidden_sizes, device = device)
-memory = ReplayMemory(args.steps_per_episode, 
+pv = PolicyValue(obs_type = args.observation_type, observation_space = obs_sp, action_space = act_sp, hidden_sizes = args.hidden_sizes, device = device)
+memory = ReplayMemory(args.steps_per_epoch, 
                       obs_sp.shape, 
                       act_sp.shape, 
                       gamma = args.gamma, 
                       lam = args.lam)
 
-pi_optimizer = optim.Adam(ac.pi.parameters(), lr = args.pi_lr)
-v_optimizer = optim.Adam(ac.v_pi.parameters(), lr = args.v_lr)
+pi_optimizer = optim.Adam(pv.pi.parameters(), lr = args.pi_lr)
+v_optimizer = optim.Adam(pv.v_pi.parameters(), lr = args.v_lr)
 
 ep_ret, ep_len = 0, 0
 stats_return, stats_return["mean"], stats_return["max"], stats_return["min"] = {}, [], [], []
 all_durations = []
-for episode in range(args.episodes):
-    episode_returns  = []
-    for st in range(args.steps_per_episode):
-        action, value = ac.step(torch.as_tensor(obs, dtype = torch.float32).to(device))
+for epoch in range(args.epochs):
+    epoch_returns  = []
+    for st in range(args.steps_per_epoch):
+        action, value = pv.step(torch.as_tensor(obs, dtype = torch.float32).to(device))
         if args.observation_type == "img":
             reward = em.take_action(action)
             ep_ret += reward.item()
@@ -346,21 +345,21 @@ for episode in range(args.episodes):
         
         timeout = ep_len == args.max_ep_len
         terminal = em.done if args.observation_type =="img" else done or timeout # trajectory finished
-        episode_ended = st == args.steps_per_episode - 1 
+        epoch_ended = st == args.steps_per_epoch - 1 
         
-        if terminal or episode_ended:
-            if episode_ended and not(terminal):
+        if terminal or epoch_ended:
+            if epoch_ended and not(terminal):
                 print('Warning: trajectory cut off by episode at %d steps.'%ep_len, flush=True)
             
             # trajectory didn't reach terminal state (not done) --> bootstrap
-            if timeout or episode_ended:
-                _, value = ac.step(torch.as_tensor(obs, dtype = torch.float32).to(device))
+            if timeout or epoch_ended:
+                _, value = pv.step(torch.as_tensor(obs, dtype = torch.float32).to(device))
             else:
                 value = 0
             memory.finish_path(value)
             
             if terminal:
-                episode_returns.append(ep_ret)
+                epoch_returns.append(ep_ret)
                 all_durations.append(ep_len)
             if args.observation_type == "img":
                 em.reset()     
@@ -376,11 +375,11 @@ for episode in range(args.episodes):
     _obs, _act, _ret, _adv = data["obs"].to(device), data["act"].to(device), data["ret"].to(device), data["adv"].to(device)
     # Train policy
     pi_optimizer.zero_grad()
-    pi, logp = ac.pi(_obs, _act)
+    pi, logp = pv.pi(_obs, _act)
     loss_pi = -(logp * _adv).mean()
     loss_pi.backward()
     pi_optimizer.step()
-    mean_, max_, min_ = stats(episode_returns)
+    mean_, max_, min_ = stats(epoch_returns)
     stats_return["mean"].append(mean_)
     stats_return["min"].append(min_)
     stats_return["max"].append(max_)
@@ -388,7 +387,7 @@ for episode in range(args.episodes):
     # Train value function
     for i in range(args.train_v_iters):
         v_optimizer.zero_grad()
-        loss_v_pi = ((ac.v_pi(_obs) - _ret)**2).mean()
+        loss_v_pi = ((pv.v_pi(_obs) - _ret)**2).mean()
         loss_v_pi.backward()
         v_optimizer.step()
-    plot(episode + 1, stats_return)
+    plot(epoch + 1, stats_return)

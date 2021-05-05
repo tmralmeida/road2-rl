@@ -28,18 +28,18 @@ def discount_cumsum(x, discount):
 def stats(arr):
     return np.mean(arr), np.max(arr), np.min(arr)
 
-def plot(eps, stats_return):
+def plot(ep, stats_return):
     mean_ = stats_return["mean"]
     max_ = stats_return["max"]
     min_ = stats_return["min"]
     plt.figure(2)
     plt.clf()
     plt.title("Training...")
-    plt.xlabel("# Episode")
+    plt.xlabel("# Epochs")
     plt.ylabel("Avg Returns")
     plt.plot(mean_, c = "r")
     plt.fill_between(np.arange(len(mean_)), max_, min_, facecolor = "blue", alpha = 0.3)
     plt.pause(0.001)
-    print("Episode", eps, "\n", "Avg Return", mean_[-1])
+    print("Epoch", ep, "\n", "Avg Return", mean_[-1])
     display.clear_output(wait = True)
     
