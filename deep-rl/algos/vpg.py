@@ -1,16 +1,14 @@
 import gym
 from gym.spaces import Box, Discrete
-import math 
-import random
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import namedtuple
-from utils.lib_vpg import plot, combined_shape, discount_cumsum, stats
+from utils.vpg import combined_shape, discount_cumsum, plot, stats
 from utils.env_managers.cartpole import CartPoleEnvManager
 
 import torch
-import torch.optim as optim
 import torch.nn as nn
+import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 from torch.distributions import Categorical, Normal
@@ -134,7 +132,7 @@ def mlp(obs_type, sizes, activation = nn.Tanh, last_activation = nn.Identity):
     layers.extend([nn.Linear(s[-1][0], s[-1][1]), last_activation()])
     return nn.Sequential(*layers)
     
-# Each experience that needs to be stores 
+# Experience object
 Experience = namedtuple("Experience", (
     "state, action, reward"
 ))
@@ -306,13 +304,12 @@ if args.observation_type == "img":
                  high=255, 
                  shape=(3, em.get_screen_height(), em.get_screen_width()), 
                  dtype=np.uint8)
-    act_sp = env.action_space
     em.reset()
     obs = em.get_state()
 else:
     obs_sp = env.observation_space
-    act_sp = env.action_space
     obs = env.reset()
+act_sp = env.action_space
 pv = PolicyValue(obs_type = args.observation_type, observation_space = obs_sp, action_space = act_sp, hidden_sizes = args.hidden_sizes, device = device)
 memory = ReplayMemory(args.steps_per_epoch, 
                       obs_sp.shape, 
@@ -391,3 +388,5 @@ for epoch in range(args.epochs):
         loss_v_pi.backward()
         v_optimizer.step()
     plot(epoch + 1, stats_return)
+if args.observation_type == "img":
+    em.close()
