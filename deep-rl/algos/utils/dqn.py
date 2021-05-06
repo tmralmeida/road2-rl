@@ -4,7 +4,7 @@ from IPython import display
 import matplotlib.pyplot as plt
 
 Experience = namedtuple(
-    "Experience", ("state", "action", "next_state", "reward")
+    "Experience", ("state", "action", "next_state", "reward", "done")
 )
 
 
@@ -14,13 +14,10 @@ class QValues():
         return policy_net(states).gather(dim = 1, index=actions.unsqueeze(-1))
     
     @staticmethod
-    def get_next(target_net, next_states, device):
-        final_state_locations = next_states.flatten(start_dim = 1).max(dim = 1)[0].eq(0).type(torch.bool)# terminal states where the screen is black (max == 0)
-        non_final_state_locations = (final_state_locations == False)
-        non_final_states = next_states[non_final_state_locations]
+    def get_next(target_net, next_states, dones, device):
         batch_size = next_states.shape[0]
         values = torch.zeros(batch_size).to(device)
-        values[non_final_state_locations] = target_net(non_final_states).max(dim = 1)[0].detach()
+        values[dones == False] = target_net(next_states[dones == False]).max(dim = 1)[0].detach()
         return values
 
 def extract_tensors(experiences):
@@ -30,7 +27,8 @@ def extract_tensors(experiences):
     t2 = torch.cat(batch.action)
     t3 = torch.cat(batch.reward)
     t4 = torch.cat(batch.next_state)
-    return (t1,t2,t3,t4)
+    t5 = torch.cat(batch.done)
+    return (t1,t2,t3,t4, t5)
 
 
 def get_moving_average(period, values):

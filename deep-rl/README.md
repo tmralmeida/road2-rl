@@ -55,9 +55,12 @@ I opted to use a transversal "code template" for deep RL algorithms based on [de
     * $L_\pi(\theta) = -(\log(\pi(A|O;\theta) \times \text{Adv}).\text{mean()}$
     * $L_{v_{\pi}} = ((V_\pi(s) - R)^2).\text{mean()}$
 
+The results of this algorithm stands for the average return over each epoch and respective minimum and maximum. The first result corresponds to the usage of the default state observations ([`Cart Position, Cart Velocity, Pole Angle, Pole Velocity At Tip]`):
+
 <p align="center">
-  <img width="500" height="400" src="results/vpg_res.png">
+  <img width="1000" height="500" src="results/vpg_res.png">
 </p>
+
 
 
 
@@ -117,11 +120,24 @@ The `observation_type` stands out for the types of state observations that the a
 
 
 
-
+The results of this algorithm stands for a moving average over 100 episodes. The first result corresponds to the usage of images as states observations:
 
 <p align="center">
-  <img width="1000" height="500" src="results/dqn_res.png">
+  <img width="1000" height="500" src="results/dqn_res_image.png">
 </p>
+
+
+
+The second result is based on default states observations ([`Cart Position, Cart Velocity, Pole Angle, Pole Velocity At Tip]`):
+
+<p align="center">
+  <img width="1000" height="500" src="results/dqn_res_default.png">
+</p>
+
+
+
+**Conclusion:** Images as states observations in this setting take longer to converge/get to an "optimal" value.
+
 
 
 
@@ -136,5 +152,5 @@ The `observation_type` stands out for the types of state observations that the a
 | --eps_vals         | `tuple`  | `(1,0.01,0.001)` | Exploration setting                   |
 | -hidden_sizes      | `tuple`  |    `(32,32)`     | Shape of each hidden FC layer         |
 | --observation_type | `string` |      `img`       | Choices = [`default`, `img`]          |
-| --env              | string`  |  `CartPole-v0`   | The only one provided right now       |
+| --env              | `string` |  `CartPole-v0`   |The only one provided right now|
 | --device           | `string` |      `cpu`       | Choices = [`cuda`, `cpu`]             |

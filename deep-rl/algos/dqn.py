@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import namedtuple
 from itertools import count
-from utils.dqn import extract_tensors, QValues, plot
+from utils.dqn import extract_tensors, QValues, plot, Experience
 from utils.common import mlp
 from utils.env_managers.cartpole import CartPoleEnvManager
 
@@ -129,12 +129,6 @@ def DQN(obs_type, observation_space, action_space, hidden_sizes, activation = nn
                activation, 
                last_activation).to(device)
     
-    
-# Experience object
-Experience = namedtuple(
-    "Experience", ("state", "action", "next_state", "reward")
-)
-
 
 # Replay buffer
 class ReplayMemory():
@@ -208,19 +202,29 @@ class Agent():
             
 
 
-
+if args.device == "cuda" and not torch.cuda.is_available():
+    raise ("raise GPU error, please selec --device 'cpu'")
 
 device = torch.device(args.device)
 env = gym.make(args.env)
-em = CartPoleEnvManager(env, args.device)
+
+
+if args.observation_type == "img":
+    em = CartPoleEnvManager(env, device)
+    obs_sp = Box(low=0, 
+                 high=255, 
+                 shape=(3, em.get_screen_height(), em.get_screen_width()), 
+                 dtype=np.uint8)
+    obs = em.get_state()
+    n_actions = em.num_actions_available()
+else:
+    obs_sp = env.observation_space
+    n_actions = env.action_space.n
+
 strategy = EpsilonGreedyStrategy(args.eps_vals[0], args.eps_vals[1], args.eps_vals[2])
-agent = Agent(strategy, em.num_actions_available(), args.device)
+agent = Agent(strategy, n_actions, args.device)
 memory = ReplayMemory(args.memory_size)
 
-obs_sp = Box(low=0, 
-             high=255, 
-             shape=(3, em.get_screen_height(), em.get_screen_width()), 
-             dtype=np.uint8)
 action_sp = env.action_space
 policy_net = DQN(obs_type = args.observation_type, 
                  observation_space = obs_sp, 
@@ -237,33 +241,42 @@ target_net.load_state_dict(policy_net.state_dict())
 optimizer = optim.Adam(params = policy_net.parameters(), lr = args.lr)
 
 ep_ret, ep_len = 0, 0
-stats_return, stats_return["mean"], stats_return["max"], stats_return["min"] = {}, [], [], []
 all_durations = []
 all_returns = []
 for episode in range(args.episodes):
-    em.reset()
-    state = em.get_state()
+    if args.observation_type == "img":
+        em.reset()
+        state = em.get_state()
+    else:
+        state = torch.from_numpy(env.reset()).float().unsqueeze(dim=0)
     for timestep in count():
         action = agent.select_action(state, policy_net)
-        reward = em.take_action(action)
-        next_state = em.get_state()
-        memory.push(Experience(state, action, next_state, reward))
-        state = next_state
-        ep_ret += reward.item()
+        if args.observation_type == "img":
+            reward = em.take_action(action)
+            next_state = em.get_state() 
+            done = em.done
+        else:
+            next_state, reward, done , _ = env.step(action.item())
+            next_state = torch.tensor([next_state], device = args.device).float()
+            reward = torch.tensor([reward], device = args.device)
+        
+        memory.push(Experience(state, action, next_state, reward, torch.tensor([done])))
+        state = next_state 
+        ep_ret += reward.item() 
         
         if memory.can_provide_sample(args.batch_size):
             experiences = memory.sample(args.batch_size)
-            states, actions, rewards, next_states = extract_tensors(experiences)
+            states, actions, rewards, next_states, dones = extract_tensors(experiences)
             
             current_q_values = QValues.get_current(policy_net, states, actions)
-            next_q_values = QValues.get_next(target_net, next_states, device)
+            next_q_values = QValues.get_next(target_net, next_states, dones, device)
             target_q_values = (next_q_values * args.gamma) + rewards
             loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
         
-        if em.done:
+        if done:
             all_returns.append(ep_ret)
             all_durations.append(timestep)
             plot(all_returns, 100)
@@ -272,4 +285,5 @@ for episode in range(args.episodes):
             
     if episode % args.target_update == 0:
         target_net.load_state_dict(policy_net.state_dict())
-em.close()
+if args.observation_type == "img":
+    em.close() 
