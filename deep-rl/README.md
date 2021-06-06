@@ -1,23 +1,6 @@
 # Deep Reinforcement Learning Algorithms
 
-## Code Template
-
-I opted to use a transversal "code template" for deep RL algorithms based on [deeplizard tutorials](https://deeplizard.com/learn/playlist/PLZbbT5o_s2xoWNVdDudn51XM8lOuZ_Njv) because it is cleaner, reproducible and suitable for debugging. It is mainly composed of these different modules:
-
-* Policy (and target) network(s) and/or state/state-action value functions 
-* Experience is a *namedtuple* - e.g. in DQN is $(s,a,s',r)$
-*  Replay memory for the algorithms, which make use of it, with the following functions:
-  * appending new experiences
-  * sampling experiences
-  * other functions that can be useful for the respective algorithm
-* An object that keeps track of the exploration/exploitation trade-off if off-policy method, when it is the case
-* An RL agent  that defines the policy actions or Actor Critic functions 
-* Environment Manager is the visual high-level handler of the environment from [Open AI Gym](https://gym.openai.com/) 
-* Main loop with the training 
-
-
-
-
+The intersection between Deep Learning (usage of Deep Neural Networks) and Reinforcement Learning settings. Here, the DNN's role is either/both to approximate value functions (input: observations/observations and actions, output: scalar translating the expectations of the long-term returns of the input) or/and to estimate directly the distribution of the action space (policy) from observations. The algorithms clustering presented here (policy gradient methods, q-learning methods and explicit actor-critic - hybrid) is based on [spinninup notes](#https://spinningup.openai.com/en/latest/spinningup/rl_intro2.html).
 
 ## Policy gradient methods
 
@@ -84,6 +67,49 @@ The results of this algorithm stands for the average return over each epoch and 
 
 
 The `observation_type` stands out for the types of state observations that the algorithm may have: the input image or the default state observations (position of cart, velocity of cart, angle of pole, rotation rate of pole for the CartPole-v0 environment). In this algorithm, one thing that I'd like to notice is the fact that the full batch is stored before the algorithm's update. In this way, we keep the i.i.d assumption motivated by the usage of Deep Networks (a full epoch has no dependence with the respective next epoch). 
+
+
+
+### A3C or Advantage Actor-Critic 
+
+* The key feature of this algorithm is that makes use of parallel training to introduce exploration, speed up and ease the training procedure: by running different actors in different processors
+
+* These actors or their results are synced from time to time 
+
+* The usage of multiple actors enables to drop the limited replay buffer memory (used to stabilize training); the latter is limited in the sense that just allows off-policy settings and resorts a big amount of computational power
+
+* In this way, it makes sense to present and describe some interesting and fundamental concepts w.r.t. concurrency:
+
+  * **Concurrency**
+
+    * Different trains of thought. Each one can be stopped at certain points, and the CPU or brain that is processing them can switch to a different one. The state of each one is saved so it can be restarted right where it was interrupted
+
+      * `multiprocessing` actually runs these trains of thought at literally the same time -> Parallelism
+      * `threading` and `asyncio` both run on a single processor and therefore only run one at a time. They just cleverly find ways to take turns to speed up the overall process. Even though they don’t run different trains of thought simultaneously, we still call this concurrency
+
+    * *Threads and Tasks*
+
+      * `threading`: **pre-emptive multitasking** - the OS knows about each thread and can interrupt it at any time to start running a different thread
+      * `asyncio`: **cooperative multitasking** - the tasks must cooperate by announcing when they are ready to be switched out; here, we always know when the task will be swapped out
+
+    * *Parallelism and Processes*
+
+      * This allows us to make use of many processors/cores of our CPU -> `multiprocessing`
+
+        Python creates new processes, which can be seen as completely different programs. Bringing up a separate Python interpreter is not as fast as starting a new thread in the current Python interpreter. It’s a heavyweight operation and comes with some restrictions and difficulties, but for the correct problem, it can make a huge difference
+
+    * *Usefulness*
+
+      * I/O bound: wait for input/output (I/O) from some external resource (e.g. Internet requests). These problems arise frequently when your program is working with things that are much slower than your CPU; speeding it up involves overlapping the times spent waiting for these devices. -> Multi-threading/asyncio
+      * CPU-bound: most of the time doing CPU operations; speeding it up involves finding ways to do more computations in the same amount of time -> Multi-Processing
+
+The result of this algorithm stands for the a moving average of the returns. It corresponds to the usage of the default state observations ([`Cart Position, Cart Velocity, Pole Angle, Pole Velocity At Tip]`):
+
+<p align="center">
+  <img width="1000" height="500" src="results/a3c_res.png">
+</p>
+
+
 
 ## Q-Learning methods
 

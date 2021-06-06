@@ -132,5 +132,8 @@ dmypy.json
 *.json
 1_VPG-image.ipynb
 1_VPG.ipynb
+2_A3C.ipynb
+multiprocessing.ipynb
 Untitled.ipynb
+multi-processing.ipynb
 drafts/
