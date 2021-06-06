@@ -2,7 +2,32 @@
 
 The intersection between Deep Learning (usage of Deep Neural Networks) and Reinforcement Learning settings. Here, the DNN's role is either/both to approximate value functions (input: observations/observations and actions, output: scalar translating the expectations of the long-term returns of the input) or/and to estimate directly the distribution of the action space (policy) from observations. The algorithms clustering presented here (policy gradient methods, q-learning methods and explicit actor-critic - hybrid) is based on [spinninup notes](#https://spinningup.openai.com/en/latest/spinningup/rl_intro2.html).
 
-## Policy gradient methods
+
+
+# Table of Contents
+- [Table of Contents](#table-of-contents)
+- [Development](#development)
+- [Policy gradient methods](#policy-gradient-methods)
+  * [VPG](#vpg) 
+  * [A3C](#a3c-or-advantage-actor-critic)
+- [Q-learning methods](#q-learning-methods)
+  * [DQN](#dqn)
+
+
+
+# Development
+
+- VPG
+  - [x] Default observation type
+  - [x] Images as observations
+- A3C
+  - [x] Default observation type
+  - [ ] Images as observations
+- DQN
+  - [x] Default observation type
+  - [x] Images as observations
+
+# Policy gradient methods
 
 * Estimate of the gradient of the policy's performance w.r.t. the respective policy parameters
 * **Score Function Estimator** is a general method for estimating gradients of expectations: $\nabla_\theta E_x[f(x)] = E_x [\nabla_\theta \log p(x|\theta) f(x)]$. In Deep RL setting, let's say that $x$ is a random variable (the state or trajectory) and $f(x)$ the function that maps the state\trajectory to a reward, then: $\nabla_\theta E_\tau[R(\tau)] = E_\tau [\nabla_\theta \log p(\tau|\theta) R(\tau)]$, which with a little manipulation (chain rule in the trajectory) is the same as:  $\nabla_\theta E_\tau[R(\tau)] = E_\tau [\sum^{T-1}_{t=0}\nabla_\theta \log \pi(a_t|s_t, \theta) R(\tau)]$
@@ -12,7 +37,7 @@ The intersection between Deep Learning (usage of Deep Neural Networks) and Reinf
 
 
 
-### Vanilla Policy Gradient or REINFORCE
+## VPG
 
 * The key idea of Policy Gradients algorithms is to  estimate the gradient of the policy's performance, pushing the probabilities of actions that lead to higher return, and pushing down the probabilities of actions that lead to lower return, until arrive to the optimal policy
 * VPG is an on-policy method, i.e. the behavior policy (the one used to generate behavior) is the same as the target policy (the one that we want to estimate)
@@ -70,7 +95,7 @@ The `observation_type` stands out for the types of state observations that the a
 
 
 
-### A3C or Advantage Actor-Critic 
+## A3C
 
 * The key feature of this algorithm is that makes use of parallel training to introduce exploration, speed up and ease the training procedure: by running different actors in different processors
 
@@ -106,19 +131,33 @@ The `observation_type` stands out for the types of state observations that the a
 The result of this algorithm stands for the a moving average of the returns. It corresponds to the usage of the default state observations ([`Cart Position, Cart Velocity, Pole Angle, Pole Velocity At Tip]`):
 
 <p align="center">
-  <img width="1000" height="500" src="results/a3c_res.png">
+  <img width="1000" height="500" src="results/a3c_default.png">
 </p>
 
 
+| Argument Name      |   Type   |    Default    | Additional Info                                |
+| ------------------ | :------: | :-----------: | ---------------------------------------------- |
+| --epochs           |  `int`   |    `10000`    | Number of epochs to train                      |
+| --target_update    |  `int`   |      10       | Episodes step for the synchronization          |
+| --gamma            | `float`  |     0.99      | Discount factor                                |
+| --lr               | `float`  |    `1e-4`     | Learning rate                                  |
+| --betas            | `tuple`  | `(0.9,0.99)`  | Hyper-parameters for the shared ADAM optimizer |
+| --lam              | `float`  |    `0.95`     | Hyper-parameter for GAE                        |
+| -hidden_sizes      | `tuple`  |   `(32,32)`   | Shape of each hidden FC layer                  |
+| --observation_type | `string` |     `img`     | Choices = [`default`, `img`]                   |
+| --env              | `string` | `CartPole-v0` | The only one provided right now                |
+| --device           | `string` |     `cpu`     | Choices = [`cuda`, `cpu`]                      |
 
-## Q-Learning methods
+
+
+# Q-learning methods
 
 * Instead of directly learning the policy, Q-Learning methods learn an optimal state-action ($Q_\theta(s,a)$) value function; from that we can get the optimal policy
 * Typically, off-policy methods
 
 
 
-### DQN
+## DQN
 
 * The primary goal of this algorithm is to learn a state-action value function whose inputs are RGB images
 * One of the possible misconceptions when using Deep Learning in RL settings could be: the i.i.d property of the data. To avoid this problem, DQN stores first the data in  a replay buffer; from which training data is **randomly** sampled

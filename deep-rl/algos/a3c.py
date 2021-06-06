@@ -41,14 +41,13 @@ parser.add_argument(
 parser.add_argument(
     "--lam",
     type=float,
-    help="Hyperparameter for the baseline. See baselines for more info",
+    help="Hyperparameter for GAE.",
     default=0.95
 )
 
 
 parser.add_argument(
-    "--learning_rate",
-    "-lr",
+    "--lr",
     type=float,
     help="Learning rate",
     default=1e-3,
@@ -207,7 +206,7 @@ class SharedAdam(torch.optim.Adam):
                 state['exp_avg'].share_memory_()
                 state['exp_avg_sq'].share_memory_()
                 
-optim = SharedAdam(shared_actor_critic.parameters(), args.learning_rate, args.betas)
+optim = SharedAdam(shared_actor_critic.parameters(), args.lr, args.betas)
 global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
 class Worker(mp.Process):
