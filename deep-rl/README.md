@@ -9,7 +9,7 @@ The intersection between Deep Learning (usage of Deep Neural Networks) and Reinf
 - [Development](#development)
 - [Policy gradient methods](#policy-gradient-methods)
   * [VPG](#vpg) 
-  * [A3C](#a3c-or-advantage-actor-critic)
+  * [A3C](#a3c)
 - [Q-learning methods](#q-learning-methods)
   * [DQN](#dqn)
 
