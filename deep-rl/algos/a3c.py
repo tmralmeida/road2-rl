@@ -6,9 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import namedtuple
 from itertools import count
-from utils.common import mlp
 import matplotlib.pyplot as plt
 from collections import deque
+from utils.common import mlp
+from utils.env_managers.cartpole import CartPoleEnvManager
 
 import torch
 import torch.nn as nn
@@ -85,14 +86,6 @@ parser.add_argument(
     default="CartPole-v0"
 )
 
-
-parser.add_argument(
-    "--device",
-    type=str,
-    help="cuda or cpu",
-    default="cpu",
-    choices=["cuda", "cpu"]
-)
 
 args = parser.parse_args()
 
@@ -174,21 +167,6 @@ class ActorCritic(nn.Module):
         return a.cpu().numpy(), v.cpu().numpy()
     
     
-if args.device == "cuda" and not torch.cuda.is_available():
-    raise ("raise GPU error, please selec --device 'cpu'")
-
-device = torch.device(args.device)
-env = gym.make(args.env)
-
-obs_sp = env.observation_space
-obs = env.reset()
-act_sp = env.action_space
-shared_actor_critic = ActorCritic(args.observation_type, 
-                                  obs_sp, 
-                                  act_sp,
-                                  args.hidden_sizes)
-
-
 # Shared Optimizer
 class SharedAdam(torch.optim.Adam):
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.99), eps=1e-8,
@@ -206,9 +184,6 @@ class SharedAdam(torch.optim.Adam):
                 state['exp_avg'].share_memory_()
                 state['exp_avg_sq'].share_memory_()
                 
-optim = SharedAdam(shared_actor_critic.parameters(), args.lr, args.betas)
-global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
-
 class Worker(mp.Process):
     def __init__(self,
                 shared_ac, 
@@ -231,25 +206,35 @@ class Worker(mp.Process):
         
         self.env = gym.make(self._params.env)
         self.local_ac = ActorCritic(self._params.observation_type, 
-                                    self.env.observation_space, 
+                                    self._params.observation_space, 
                                     self.env.action_space, 
                                     self._net_params.hidden_sizes, 
                                     self._net_params.activation,
                                     self._net_params.last_activation)
-    
+        self.em = CartPoleEnvManager(self.env, "cpu") if self._params.observation_type == "img" else None 
     def run(self):
-        obs = env.reset()
+        if self.em is not None:
+            self.em.reset()
+            obs = self.em.get_state()
+        else:
+            obs = self.env.reset()
         obs = torch.as_tensor(obs, dtype = torch.float32)
         while self.global_ep.value < self._params.epochs:
             b_obs, b_act, b_v, b_r, ep_ret = [], [], deque(), deque(), 0
             while True:
                 action, value = self.local_ac.step(obs)
-                next_obs, reward, done, _ = env.step(action)
-                ep_ret += reward
+                if self.em is not None:
+                    reward = em.take_action(action)
+                    ep_ret += reward.item()
+                    next_obs = em.get_state()
+                    done = em.done
+                else:
+                    next_obs, reward, done, _ = self.env.step(action)
+                    ep_ret += reward
                 b_obs.append(obs)
                 b_act.append(torch.from_numpy(action))
                 if done:
-                    next_obs = env.reset()
+                    next_obs = self.env.reset()
                 obs = torch.as_tensor(next_obs, dtype = torch.float32)
                 b_v.appendleft(value)
                 b_r.appendleft(reward)
@@ -294,19 +279,43 @@ class Worker(mp.Process):
             self.local_ac.load_state_dict(self.shared_ac.state_dict())
         self.res_queue.put(None)
 
+
+device = torch.device("cpu")
+env = gym.make(args.env)
+
+if args.observation_type == "img":
+    raise RuntimeError("Open Ai render method is not prepared for multiprocessing.")
+    em = CartPoleEnvManager(env, device)
+    obs_sp = Box(low=0, 
+                 high=255, 
+                 shape=(3, em.get_screen_height(), em.get_screen_width()), 
+                 dtype=np.uint8)
+else:
+    obs_sp = env.observation_space
+
+act_sp = env.action_space
+shared_actor_critic = ActorCritic(args.observation_type, 
+                                  obs_sp, 
+                                  act_sp,
+                                  args.hidden_sizes)
+
+
 ProblemParams = namedtuple("ProblemParams",
-                           ("epochs", "gamma", "lam","observation_type", "env"))   
+                           ("epochs", "gamma", "lam","observation_type", "observation_space","env"))   
 
 NetParams = namedtuple("NetParams",
                       ("hidden_sizes, activation, last_activation"))
 
 params = ProblemParams(
-    args.epochs, args.gamma, args.lam, args.observation_type, args.env
+    args.epochs, args.gamma, args.lam, args.observation_type, obs_sp, args.env
 )    
 
 net_params = NetParams(
     args.hidden_sizes, nn.Tanh, nn.Identity
 )
+
+optim = SharedAdam(shared_actor_critic.parameters(), args.lr, args.betas)
+global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
 workers = [Worker(shared_actor_critic, 
                   optim, global_ep, 

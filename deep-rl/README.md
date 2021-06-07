@@ -22,7 +22,7 @@ The intersection between Deep Learning (usage of Deep Neural Networks) and Reinf
   - [x] Images as observations
 - A3C
   - [x] Default observation type
-  - [ ] Images as observations
+  - [ ] Images as observations does not work because OpenAI `render` method does not support multiprocessing
 - DQN
   - [x] Default observation type
   - [x] Images as observations
@@ -146,7 +146,6 @@ The result of this algorithm stands for the a moving average of the returns. It 
 | -hidden_sizes      | `tuple`  |   `(32,32)`   | Shape of each hidden FC layer                  |
 | --observation_type | `string` |     `img`     | Choices = [`default`, `img`]                   |
 | --env              | `string` | `CartPole-v0` | The only one provided right now                |
-| --device           | `string` |     `cpu`     | Choices = [`cuda`, `cpu`]                      |
 
 
 
